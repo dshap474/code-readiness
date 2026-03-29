@@ -1,0 +1,54 @@
+name: error-to-insight
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: Issue title
+        required: true
+        type: string
+      source:
+        description: Error source such as Sentry or runtime logs
+        required: true
+        type: string
+      context:
+        description: Summary of the failure context
+        required: true
+        type: string
+  repository_dispatch:
+    types: [product-error]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const payload = context.eventName === 'repository_dispatch'
+              ? context.payload.client_payload
+              : context.payload.inputs;
+            const title = payload.title || `${payload.source}: product-facing error`;
+            const body = [
+              '## Source',
+              payload.source,
+              '',
+              '## Context',
+              payload.context,
+              '',
+              '## Expected follow-up',
+              '- confirm user impact',
+              '- link release or request evidence',
+              '- route to the owning engineer',
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['type/bug', 'area/backend', 'needs-triage'],
+            });

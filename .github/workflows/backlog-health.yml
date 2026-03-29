@@ -1,0 +1,45 @@
+name: backlog-health
+
+on:
+  schedule:
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const {data: issues} = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            const violations = [];
+            const requiredPrefixes = ['type/', 'priority/', 'area/'];
+
+            for (const issue of issues) {
+              if (issue.pull_request) continue;
+              const labels = issue.labels.map((label) => typeof label === 'string' ? label : label.name);
+              const missingPrefix = requiredPrefixes.find((prefix) => !labels.some((name) => name.startsWith(prefix)));
+              if (missingPrefix) {
+                violations.push(`#${issue.number} is missing a ${missingPrefix} label.`);
+              }
+              const ageMs = Date.now() - new Date(issue.created_at).getTime();
+              const olderThanWeek = ageMs > 7 * 24 * 60 * 60 * 1000;
+              if (olderThanWeek && labels.includes('needs-triage')) {
+                violations.push(`#${issue.number} is still needs-triage after one week.`);
+              }
+            }
+
+            if (violations.length) {
+              core.setFailed(violations.join('\n'));
+            }

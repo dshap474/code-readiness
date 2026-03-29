@@ -1,0 +1,20 @@
+prefix_rule(
+    pattern = ["git", "commit"],
+    decision = "prompt",
+    justification = "Require explicit confirmation before creating commits.",
+    match = ["git commit -m 'checkpoint'"],
+)
+
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "prompt",
+    justification = "Require explicit confirmation before pushing branches.",
+    match = ["git push origin main"],
+)
+
+prefix_rule(
+    pattern = ["rm", "-rf"],
+    decision = "forbidden",
+    justification = "Destructive recursive deletion is not allowed from Codex.",
+    match = ["rm -rf /tmp/some-dir"],
+)

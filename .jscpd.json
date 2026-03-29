@@ -1,0 +1,12 @@
+{
+  "absolute": false,
+  "gitignore": true,
+  "ignore": [
+    "**/.venv/**",
+    "**/alembic/versions/**",
+    "**/docs/api/openapi.yaml"
+  ],
+  "minLines": 8,
+  "output": ".jscpd-report",
+  "pattern": "**/*.{py,md,toml,yml,yaml}"
+}

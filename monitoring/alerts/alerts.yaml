@@ -1,0 +1,9 @@
+alerts:
+  - name: api_readiness_failed
+    owner: engineering
+    condition: readyz_status != 200 for 5m
+    route: engineering-triage
+  - name: widget_request_error_rate
+    owner: engineering
+    condition: 5xx_rate > 0.05 for 10m on /api/v1/widgets
+    route: engineering-triage

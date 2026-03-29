@@ -1,0 +1,5 @@
+{
+  "title": "Widget creation failed after deploy",
+  "source": "runtime logs",
+  "context": "request_id=req-123 release=2026.03.28 widget create returned 500"
+}

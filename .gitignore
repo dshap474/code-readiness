@@ -1,0 +1,17 @@
+.DS_Store
+.coverage
+.env
+.env.local
+.env.test
+.env.*.local
+.pytest_cache/
+.ruff_cache/
+.venv/
+__pycache__/
+*.py[cod]
+build/
+dist/
+htmlcov/
+.jscpd-report/
+codex-output.md
+gitleaks-report.sarif

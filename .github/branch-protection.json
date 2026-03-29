@@ -1,0 +1,7 @@
+{
+  "branch": "main",
+  "required_status_checks": ["proof", "secret-scan", "dast"],
+  "required_pull_request_reviews": true,
+  "dismiss_stale_reviews": true,
+  "require_code_owner_reviews": true
+}
