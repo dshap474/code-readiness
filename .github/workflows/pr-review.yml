@@ -13,7 +13,7 @@ jobs:
     outputs:
       final_message: ${{ steps.run_codex.outputs.final-message }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/merge
       - name: Pre-fetch base and head refs
@@ -32,7 +32,7 @@ jobs:
           sandbox: workspace-write
       - name: Publish review artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: codex-pr-review
           path: codex-output.md
@@ -53,7 +53,7 @@ jobs:
           - Delivery: pull request comment plus uploaded artifact
           EOF
       - name: Post Codex feedback
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           CODEX_FINAL_MESSAGE: ${{ needs.codex.outputs.final_message }}
         with:
@@ -66,7 +66,7 @@ jobs:
               body: process.env.CODEX_FINAL_MESSAGE,
             });
       - name: Upload PR review summary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pr-review-summary
           path: dist/review/pr-review-summary.md

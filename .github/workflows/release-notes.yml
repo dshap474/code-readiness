@@ -17,7 +17,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Derive release metadata
@@ -80,7 +80,7 @@ jobs:
               --notes-file dist/release-notes.md
           fi
       - name: Upload release notes artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-notes
           path: dist/release-notes.md
