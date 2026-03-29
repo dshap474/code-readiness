@@ -14,6 +14,7 @@ fmt:
 
 lint:
     uv run ruff check .
+    uv run python scripts/check-secrets.py
     uv run python scripts/check-build-surface.py
     uv run python scripts/check-devcontainer.py
     uv run python scripts/check-large-files.py
@@ -46,6 +47,7 @@ test:
 ci:
     uv run ruff format --check .
     uv run ruff check .
+    uv run python scripts/check-secrets.py
     uv run ty check src tests scripts
     uv run python scripts/check-build-surface.py
     uv run python scripts/check-devcontainer.py

@@ -19,6 +19,21 @@ This repo is a small FastAPI service with one Postgres-backed resource: `widgets
 - `db.py` depends on typed settings from `config.py`.
 - tests depend on public app and database surfaces, not the reverse.
 
+## Enforced Boundaries
+
+- `config.py` is the leaf settings layer and must not import runtime, persistence, feature, or
+  analytics modules.
+- `db.py` may depend on `config.py`, but must not import app, feature, analytics, or
+  observability modules.
+- `analytics.py` may depend on `config.py` and observability helpers, but must not import app,
+  database, or feature modules.
+- `observability.py` may depend on `config.py`, but must not import app, database, analytics, or
+  feature modules.
+- `features/` may depend on `db.py`, `analytics.py`, and `observability.py`, but must never
+  import app entrypoints.
+- `scripts/check-architecture.py` is the repo-owned enforcement point for these boundaries and
+  runs in `just lint` and `just ci`.
+
 ## Runtime Boundaries
 
 - FastAPI provides the HTTP boundary.

@@ -38,7 +38,14 @@ def check_ci_workflow() -> int:
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     return require_terms(
         workflow,
-        ("just ci", "build-metrics.json", "actions/upload-artifact"),
+        (
+            "just ci",
+            "build-metrics.json",
+            "actions/upload-artifact",
+            "fast-feedback.json",
+            "pytest tests/unit --cov-fail-under=0",
+            "ci-performance-summary.md",
+        ),
         "Build surface check failed. ci.yml must include",
     )
 
@@ -51,6 +58,9 @@ def check_ci_budget() -> int:
     if budget.get("artifact") != "build-metrics.json":
         print("Build surface check failed. ci-budget.json must point to build-metrics.json.")
         return 1
+    if budget.get("fast_feedback_artifact") != "fast-feedback.json":
+        print("Build surface check failed. ci-budget.json must point to fast-feedback.json.")
+        return 1
     if not isinstance(budget.get("max_seconds"), int) or budget["max_seconds"] <= 0:
         print("Build surface check failed. ci-budget.json must define a positive max_seconds.")
         return 1
@@ -61,7 +71,13 @@ def check_pr_review_surface() -> int:
     workflow = (ROOT / ".github" / "workflows" / "pr-review.yml").read_text(encoding="utf-8")
     workflow_result = require_terms(
         workflow,
-        ("openai/codex-action@v1", "prompt-file:", "pull_request"),
+        (
+            "openai/codex-action@v1",
+            "prompt-file:",
+            "pull_request",
+            "actions/upload-artifact",
+            "pr-review-summary.md",
+        ),
         "Build surface check failed. pr-review.yml must include",
     )
     if workflow_result != 0:
@@ -85,8 +101,30 @@ def check_cli_docs() -> int:
     )
     return require_terms(
         docs,
-        ("gh pr view", "gh run list"),
+        (
+            "gh pr view",
+            "gh run list",
+            "gh run download --name deploy-evidence",
+            "mode: rollback",
+            "rollback_release",
+        ),
         "Build surface check failed. AGENTS.md or README.md must document",
+    )
+
+
+def check_deploy_workflow() -> int:
+    workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
+    return require_terms(
+        workflow,
+        (
+            "mode:",
+            "rollback",
+            "rollback_release",
+            "rollback_feature_flags",
+            "Restore target release",
+            '"mode":"%s"',
+        ),
+        "Build surface check failed. deploy.yml must include",
     )
 
 
@@ -96,6 +134,7 @@ def main() -> int:
         check_ci_workflow,
         check_ci_budget,
         check_pr_review_surface,
+        check_deploy_workflow,
         check_cli_docs,
     ):
         result = check()

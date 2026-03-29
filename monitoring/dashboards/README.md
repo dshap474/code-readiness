@@ -14,6 +14,7 @@ Before the repo is hosted, the primary quality evidence lives in:
 
 - `monitoring/quality/README.md`
 - the `build-metrics.json` artifact uploaded by `.github/workflows/ci.yml`
+- the `ci-performance-summary.md` artifact uploaded by `.github/workflows/ci.yml`
 - `/metrics` for runtime counters and latency
 
 If the repo later adopts a hosted dashboard, keep this file as the map from that hosted view

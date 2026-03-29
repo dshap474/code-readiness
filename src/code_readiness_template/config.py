@@ -19,6 +19,16 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str | None = None
     posthog_api_key: str | None = None
     posthog_host: str = "https://us.i.posthog.com"
+    posthog_timeout_seconds: float = 2.0
+    analytics_circuit_breaker_threshold: int = 3
+    analytics_circuit_breaker_reset_seconds: int = 30
+    feature_flags: str = ""
+    privacy_contact_email: str = "privacy@example.invalid"
+    privacy_data_retention_days: int = 30
+    privacy_export_enabled: bool = True
+    privacy_delete_enabled: bool = True
+    rollback_release: str | None = None
+    rollback_feature_flags: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

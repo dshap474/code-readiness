@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import cast
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 
 from code_readiness_template.features.widgets import (
     Widget,
@@ -65,13 +66,17 @@ def test_list_widgets_returns_session_results(monkeypatch: pytest.MonkeyPatch) -
         lambda *_args, **_kwargs: None,
     )
 
-    results = list_widgets(cast(Any, session))
+    results = list_widgets(cast(Session, session))
     assert [item.slug for item in results] == ["alpha"]
 
 
 def test_create_widget_persists_new_widget(monkeypatch: pytest.MonkeyPatch) -> None:
     session = FakeSession()
     emitted: list[str] = []
+    monkeypatch.setattr(
+        "code_readiness_template.features.widgets.is_feature_enabled",
+        lambda _flag_key: True,
+    )
     monkeypatch.setattr(
         "code_readiness_template.features.widgets.emit_product_event",
         lambda event_name, **_kwargs: emitted.append(event_name),
@@ -81,7 +86,7 @@ def test_create_widget_persists_new_widget(monkeypatch: pytest.MonkeyPatch) -> N
         lambda *_args, **_kwargs: None,
     )
 
-    widget = create_widget(WidgetCreate(name="Alpha Widget"), cast(Any, session))
+    widget = create_widget(WidgetCreate(name="Alpha Widget"), cast(Session, session))
     assert widget.slug == "alpha-widget"
     assert emitted == ["widget_created"]
 
@@ -92,6 +97,10 @@ def test_create_widget_raises_conflict_for_existing_slug(
     session = FakeSession()
     session.scalar_result = Widget(name="Existing", slug="existing")
     monkeypatch.setattr(
+        "code_readiness_template.features.widgets.is_feature_enabled",
+        lambda _flag_key: True,
+    )
+    monkeypatch.setattr(
         "code_readiness_template.features.widgets.emit_product_event",
         lambda *_args, **_kwargs: None,
     )
@@ -101,9 +110,30 @@ def test_create_widget_raises_conflict_for_existing_slug(
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        create_widget(WidgetCreate(name="Existing"), cast(Any, session))
+        create_widget(WidgetCreate(name="Existing"), cast(Session, session))
 
     assert exc_info.value.status_code == 409
+
+
+def test_create_widget_respects_feature_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = FakeSession()
+    monkeypatch.setattr(
+        "code_readiness_template.features.widgets.is_feature_enabled",
+        lambda _flag_key: False,
+    )
+    monkeypatch.setattr(
+        "code_readiness_template.features.widgets.emit_product_event",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "code_readiness_template.features.widgets.log_runtime_event",
+        lambda *_args, **kwargs: kwargs,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        create_widget(WidgetCreate(name="Disabled"), cast(Session, session))
+
+    assert exc_info.value.status_code == 503
 
 
 def test_get_widget_returns_existing_widget(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -122,7 +152,7 @@ def test_get_widget_returns_existing_widget(monkeypatch: pytest.MonkeyPatch) -> 
         lambda *_args, **_kwargs: None,
     )
 
-    result = get_widget(1, cast(Any, session))
+    result = get_widget(1, cast(Session, session))
     assert result.slug == "alpha"
     assert emitted == ["widget_detail_viewed"]
 
@@ -139,6 +169,6 @@ def test_get_widget_raises_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        get_widget(999, cast(Any, session))
+        get_widget(999, cast(Session, session))
 
     assert exc_info.value.status_code == 404

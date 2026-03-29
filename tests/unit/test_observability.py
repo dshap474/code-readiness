@@ -28,6 +28,15 @@ def test_redact_sensitive_data_preserves_safe_values() -> None:
     assert redact_sensitive_data(payload) == payload
 
 
+def test_redact_sensitive_data_masks_pii_keys_and_emails() -> None:
+    payload = {"email": "user@example.com", "name": "Taylor", "status": "ok"}
+    assert redact_sensitive_data(payload) == {
+        "email": "[REDACTED-PII]",
+        "name": "[REDACTED-PII]",
+        "status": "ok",
+    }
+
+
 def test_json_formatter_redacts_sensitive_extras() -> None:
     formatter = JsonFormatter()
     record = logging.LogRecord(

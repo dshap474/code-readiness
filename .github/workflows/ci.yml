@@ -19,13 +19,66 @@ jobs:
       - uses: taiki-e/install-action@just
       - name: Sync dependencies
         run: uv sync --dev --frozen
+      - name: Run fast feedback path
+        run: |
+          start=$(date +%s)
+          uv run ruff format --check .
+          uv run ruff check .
+          uv run ty check src tests scripts
+          uv run pytest tests/unit --cov-fail-under=0
+          end=$(date +%s)
+          printf '{"fast_feedback_seconds": %s}\n' "$((end-start))" > fast-feedback.json
       - name: Run proof path
         run: |
           start=$(date +%s)
           just ci
           end=$(date +%s)
-          printf '{"proof_seconds": %s}\n' "$((end-start))" > build-metrics.json
+          printf '%s\n' "$((end-start))" > proof-seconds.txt
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          fast_feedback = json.loads(Path("fast-feedback.json").read_text())
+          proof_seconds = int(Path("proof-seconds.txt").read_text().strip())
+          budget_seconds = 600
+          payload = {
+              "fast_feedback_seconds": fast_feedback["fast_feedback_seconds"],
+              "proof_seconds": proof_seconds,
+              "budget_seconds": budget_seconds,
+              "fast_feedback_budget_met": fast_feedback["fast_feedback_seconds"] <= budget_seconds,
+              "proof_budget_met": proof_seconds <= budget_seconds,
+          }
+          Path("build-metrics.json").write_text(json.dumps(payload) + "\n")
+          PY
+        env:
+          PYTHONUNBUFFERED: "1"
+      - name: Publish CI performance summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          metrics = json.loads(Path("build-metrics.json").read_text())
+          lines = [
+              "# CI Performance Summary",
+              "",
+              f"- Fast feedback: {metrics['fast_feedback_seconds']}s",
+              f"- Full proof: {metrics['proof_seconds']}s",
+              f"- Budget: {metrics['budget_seconds']}s",
+              f"- Fast feedback within budget: {metrics['fast_feedback_budget_met']}",
+              f"- Full proof within budget: {metrics['proof_budget_met']}",
+          ]
+          Path("ci-performance-summary.md").write_text("\n".join(lines) + "\n")
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: build-metrics
           path: build-metrics.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fast-feedback
+          path: fast-feedback.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ci-performance-summary
+          path: ci-performance-summary.md

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import yaml
@@ -48,6 +49,117 @@ def check_event_contract() -> int:
     return 0
 
 
+def _feature_flag_catalog() -> dict[str, dict[str, str]]:
+    payload = yaml.safe_load(
+        (ROOT / "docs" / "product" / "experiments.yml").read_text(encoding="utf-8")
+    )
+    catalog: dict[str, dict[str, str]] = {}
+    for item in payload.get("experiments", []):
+        flag_key = item.get("feature_flag")
+        if not flag_key:
+            continue
+        catalog[flag_key] = {
+            "status": str(item.get("status", "")).strip(),
+            "name": str(item.get("name", flag_key)).strip(),
+        }
+    return catalog
+
+
+def _defined_feature_flags() -> dict[str, str]:
+    source = (ROOT / "src" / "code_readiness_template" / "feature_flags.py").read_text(
+        encoding="utf-8"
+    )
+    module = ast.parse(source)
+    defined: dict[str, str] = {}
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Call):
+            continue
+        if not isinstance(node.func, ast.Name) or node.func.id != "FeatureFlag":
+            continue
+        key: str | None = None
+        lifecycle = "active"
+        for keyword in node.keywords:
+            if keyword.arg == "key" and isinstance(keyword.value, ast.Constant):
+                key = str(keyword.value.value)
+            if keyword.arg == "lifecycle" and isinstance(keyword.value, ast.Constant):
+                lifecycle = str(keyword.value.value)
+        if key:
+            defined[key] = lifecycle
+    return defined
+
+
+def _flag_usage_count(flag_key: str) -> int:
+    total = 0
+    for path in ROOT.rglob("*.py"):
+        if any(part.startswith(".") for part in path.relative_to(ROOT).parts):
+            continue
+        if ".venv" in path.parts:
+            continue
+        total += path.read_text(encoding="utf-8").count(flag_key)
+    return total
+
+
+def check_feature_flag_stale_detection() -> int:
+    source = (ROOT / "src" / "code_readiness_template" / "feature_flags.py").read_text(
+        encoding="utf-8"
+    )
+    for term in ("stale_feature_flags", "cleanup_by", "introduced_on", "owner"):
+        if term not in source:
+            print(
+                "Product surface check failed. "
+                f"feature_flags.py must include `{term}` for stale-flag detection."
+            )
+            return 1
+    return 0
+
+
+def check_feature_flag_lifecycle() -> int:
+    catalog = _feature_flag_catalog()
+    defined = _defined_feature_flags()
+
+    undocumented = sorted(set(defined) - set(catalog))
+    if undocumented:
+        print(
+            "Product surface check failed. experiments.yml must document feature flags: "
+            + ", ".join(undocumented)
+            + "."
+        )
+        return 1
+
+    missing = sorted(set(catalog) - set(defined))
+    if missing:
+        print(
+            "Product surface check failed. feature_flags.py must define documented flags: "
+            + ", ".join(missing)
+            + "."
+        )
+        return 1
+
+    for flag_key, metadata in catalog.items():
+        usage_count = _flag_usage_count(flag_key)
+        if usage_count < 2:
+            print(
+                "Product surface check failed. "
+                f"feature flag `{flag_key}` must be referenced "
+                "in code or tests beyond its definition."
+            )
+            return 1
+        if metadata["status"] == "dormant":
+            print(
+                "Product surface check failed. "
+                f"feature flag `{flag_key}` is still documented as dormant; "
+                "remove it or mark it active/cleanup."
+            )
+            return 1
+        if metadata["status"] == "cleanup" and defined[flag_key] != "cleanup":
+            print(
+                "Product surface check failed. "
+                f"feature flag `{flag_key}` must use lifecycle='cleanup' in feature_flags.py."
+            )
+            return 1
+    return 0
+
+
 def check_runtime_instrumentation() -> int:
     source = (ROOT / "src" / "code_readiness_template" / "features" / "widgets.py").read_text(
         encoding="utf-8"
@@ -81,6 +193,8 @@ def main() -> int:
     for check in (
         check_required_files,
         check_event_contract,
+        check_feature_flag_stale_detection,
+        check_feature_flag_lifecycle,
         check_runtime_instrumentation,
         check_error_pipeline,
         check_error_workflow,

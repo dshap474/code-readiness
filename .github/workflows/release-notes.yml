@@ -1,0 +1,86 @@
+name: release-notes
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      release_id:
+        description: Release identifier to include in notes
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Derive release metadata
+        id: meta
+        env:
+          RELEASE_ID: ${{ inputs.release_id }}
+        run: |
+          release_id="${RELEASE_ID:-$(date -u +%Y.%m.%d.%H%M)}"
+          tag="v${release_id}"
+          echo "release_id=${release_id}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+      - name: Generate release notes
+        run: |
+          previous_tag="$(git tag --sort=-creatordate | head -n 1 || true)"
+          if [[ -n "${previous_tag}" ]]; then
+            range="${previous_tag}..HEAD"
+          else
+            range="HEAD"
+          fi
+
+          mkdir -p dist
+          {
+            echo "# Release ${{ steps.meta.outputs.release_id }}"
+            echo
+            echo "## Summary"
+            git log --format='- %s' ${range}
+            echo
+            echo "## Build Provenance"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Workflow: \`${GITHUB_WORKFLOW}\`"
+            echo "- Run: \`${GITHUB_RUN_ID}\`"
+            echo
+            echo "## Rollout Notes"
+            echo "- Verify deploy workflow \`deploy.yml\` succeeded for this revision."
+            echo "- Run \`just post-deploy-check\` against the target environment."
+            echo "- Review logs, metrics, and feature flags before broad rollout."
+          } > dist/release-notes.md
+      - name: Create annotated release tag
+        run: |
+          if git rev-parse "${{ steps.meta.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Tag already exists; leaving it untouched."
+            exit 0
+          fi
+
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git tag -a "${{ steps.meta.outputs.tag }}" -m "Release ${{ steps.meta.outputs.release_id }}"
+          git push origin "${{ steps.meta.outputs.tag }}"
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.meta.outputs.tag }}" >/dev/null 2>&1; then
+            gh release edit "${{ steps.meta.outputs.tag }}" \
+              --title "Release ${{ steps.meta.outputs.release_id }}" \
+              --notes-file dist/release-notes.md
+          else
+            gh release create "${{ steps.meta.outputs.tag }}" \
+              --title "Release ${{ steps.meta.outputs.release_id }}" \
+              --notes-file dist/release-notes.md
+          fi
+      - name: Upload release notes artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: dist/release-notes.md
