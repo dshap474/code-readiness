@@ -52,7 +52,7 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
       - uses: taiki-e/install-action@just
       - name: Sync dependencies
         run: uv sync --dev --frozen
