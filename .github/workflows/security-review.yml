@@ -32,7 +32,7 @@ jobs:
           EOF
       - name: Upload secret scan summary
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gitleaks-summary
           path: dist/security/gitleaks-summary.md
@@ -138,7 +138,7 @@ jobs:
           EOF
       - name: Upload DAST artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: security-review-artifacts
           path: |

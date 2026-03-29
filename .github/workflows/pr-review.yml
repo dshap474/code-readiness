@@ -32,7 +32,7 @@ jobs:
           sandbox: workspace-write
       - name: Publish review artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: codex-pr-review
           path: codex-output.md
@@ -66,7 +66,7 @@ jobs:
               body: process.env.CODEX_FINAL_MESSAGE,
             });
       - name: Upload PR review summary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pr-review-summary
           path: dist/review/pr-review-summary.md
