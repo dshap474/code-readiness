@@ -1,0 +1,159 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Deploy the current revision or execute an automated rollback
+        required: true
+        default: deploy
+        type: choice
+        options:
+          - deploy
+          - rollback
+      environment:
+        description: Deployment environment
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+      widget_write_rollout:
+        description: Percentage of traffic allowed to create widgets during rollout
+        required: true
+        default: "100"
+        type: string
+      rollback_release:
+        description: Release identifier to restore during rollback
+        required: false
+        type: string
+      rollback_feature_flags:
+        description: Feature flag string to apply immediately during rollback
+        required: false
+        default: "widget_write_enabled=false,widget_write_enabled_rollout=0"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - uses: actions/setup-node@v4
+      - uses: taiki-e/install-action@just
+      - name: Sync dependencies
+        run: uv sync --dev --frozen
+      - name: Derive deployment mode metadata
+        id: meta
+        env:
+          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_ROLLBACK_RELEASE: ${{ inputs.rollback_release }}
+          INPUT_ROLLBACK_FLAGS: ${{ inputs.rollback_feature_flags }}
+        run: |
+          mode="${INPUT_MODE:-deploy}"
+          if [[ "${mode}" == "rollback" ]]; then
+            release="${INPUT_ROLLBACK_RELEASE:-$(git tag --sort=-creatordate | sed -n '2p')}"
+            if [[ -z "${release}" ]]; then
+              echo "No rollback release was provided and no previous tag exists." >&2
+              exit 1
+            fi
+            feature_flags="${INPUT_ROLLBACK_FLAGS:-widget_write_enabled=false,widget_write_enabled_rollout=0}"
+          else
+            release="${GITHUB_SHA}"
+            feature_flags="widget_write_enabled=true,widget_write_enabled_rollout=${{ inputs.widget_write_rollout || '100' }}"
+          fi
+          echo "mode=${mode}" >> "$GITHUB_OUTPUT"
+          echo "release=${release}" >> "$GITHUB_OUTPUT"
+          echo "feature_flags=${feature_flags}" >> "$GITHUB_OUTPUT"
+      - name: Restore target release
+        if: steps.meta.outputs.mode == 'rollback'
+        run: |
+          git fetch --tags --force
+          git checkout "${{ steps.meta.outputs.release }}"
+      - name: Build release artifact
+        run: uv build
+      - name: Start local verification stack
+        run: docker compose up -d postgres
+      - name: Apply migrations
+        run: uv run alembic upgrade head
+      - name: Start API
+        env:
+          FEATURE_FLAGS: ${{ steps.meta.outputs.feature_flags }}
+          ROLLBACK_RELEASE: ${{ steps.meta.outputs.mode == 'rollback' && steps.meta.outputs.release || '' }}
+          ROLLBACK_FEATURE_FLAGS: ${{ steps.meta.outputs.mode == 'rollback' && steps.meta.outputs.feature_flags || '' }}
+        run: |
+          uv run uvicorn code_readiness_template.app:app --host 127.0.0.1 --port 8000 &
+          echo $! > uvicorn.pid
+      - name: Wait for readiness
+        run: |
+          for _ in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8000/readyz >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Service never became ready" >&2
+          exit 1
+      - name: Run post-deploy checks
+        run: just post-deploy-check http://127.0.0.1:8000
+      - name: Capture deploy evidence
+        run: |
+          mkdir -p dist/deploy
+          week_key="$(date -u +%G-W%V)"
+          printf '{"commit":"%s","environment":"production","release":"%s","week_key":"%s","deployed_at":"%s","widget_write_rollout":"%s","mode":"%s","rollback_feature_flags":"%s"}\n' \
+            "$(git rev-parse HEAD)" \
+            "${{ steps.meta.outputs.release }}" \
+            "${week_key}" \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            "${{ inputs.widget_write_rollout || '100' }}" \
+            "${{ steps.meta.outputs.mode }}" \
+            "${{ steps.meta.outputs.mode == 'rollback' && steps.meta.outputs.feature_flags || '' }}" \
+            > dist/deploy/deploy-evidence.json
+      - name: Publish deployment summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          evidence = json.loads(Path("dist/deploy/deploy-evidence.json").read_text())
+          lines = [
+              "# Deployment Summary",
+              "",
+              f"- Mode: `{evidence['mode']}`",
+              f"- Environment: {evidence['environment']}",
+              f"- Commit: `{evidence['commit']}`",
+              f"- Release marker: `{evidence['release']}`",
+              f"- Deployment week: `{evidence['week_key']}`",
+              f"- Deployed at: `{evidence['deployed_at']}`",
+              f"- Widget write rollout: `{evidence['widget_write_rollout']}%`",
+              f"- Rollback feature flags: `{evidence['rollback_feature_flags'] or 'n/a'}`",
+              "- Validation: `just post-deploy-check http://127.0.0.1:8000`",
+          ]
+          Path("dist/deploy/deployment-summary.md").write_text("\n".join(lines) + "\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deploy-evidence
+          path: |
+            dist/deploy/deploy-evidence.json
+            dist/deploy/deployment-summary.md
+      - name: Cleanup
+        if: always()
+        run: |
+          if [[ -f uvicorn.pid ]]; then
+            kill "$(cat uvicorn.pid)" || true
+          fi
+          docker compose down --remove-orphans

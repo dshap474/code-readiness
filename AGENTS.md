@@ -8,9 +8,21 @@ Use this file as the universal operating contract for the repo.
 - Start local Postgres with `just db-up`.
 - Apply schema changes with `uv run alembic upgrade head`.
 - Run the app with `just run`.
+- Use `FEATURE_FLAGS=widget_write_enabled=false` when you need to disable widget writes without
+  taking the read surface down.
+- Apply formatting with `just fmt` and expect `ruff format` to stay clean.
 - Prove changes with `just ci` before concluding work.
 - Inspect pull requests with `gh pr view`.
 - Inspect workflow runs with `gh run list`.
+- Download PR review artifacts with `gh run download --name codex-pr-review`.
+- Download CI timing artifacts with `gh run download --name fast-feedback`.
+- Download CI performance summaries with `gh run download --name ci-performance-summary`.
+- Inspect deploy runs with `gh run list --workflow deploy.yml`.
+- Download deploy evidence with `gh run download --name deploy-evidence`.
+- Trigger rollback automation with deploy workflow inputs `mode: rollback` and `rollback_release`.
+- Inspect generated release notes with `gh run list --workflow release-notes.yml`.
+- Inspect published releases with `gh release list`.
+- Inspect security review runs with `gh run list --workflow security-review.yml`.
 
 ## Primary Namespace
 

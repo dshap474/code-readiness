@@ -34,6 +34,17 @@ SENSITIVE_KEYWORDS = {
     "secret",
     "token",
 }
+PII_KEYWORDS = {
+    "address",
+    "dob",
+    "email",
+    "first_name",
+    "last_name",
+    "full_name",
+    "name",
+    "phone",
+    "ssn",
+}
 LOGGING_CONFIGURED = False
 SENTRY_CONFIGURED = False
 TRACING_CONFIGURED = False
@@ -63,6 +74,8 @@ def redact_sensitive_data(value: Any, *, key: str | None = None) -> Any:
     lowered_key = (key or "").lower()
     if lowered_key and any(keyword in lowered_key for keyword in SENSITIVE_KEYWORDS):
         return "[REDACTED]"
+    if lowered_key and any(keyword in lowered_key for keyword in PII_KEYWORDS):
+        return "[REDACTED-PII]"
     if isinstance(value, dict):
         return {
             item_key: redact_sensitive_data(item_value, key=item_key)
@@ -76,6 +89,8 @@ def redact_sensitive_data(value: Any, *, key: str | None = None) -> Any:
         lowered_value = value.lower()
         if any(keyword in lowered_value for keyword in SENSITIVE_KEYWORDS):
             return "[REDACTED]"
+        if "@" in value and "." in value.split("@")[-1]:
+            return "[REDACTED-PII]"
     return value
 
 

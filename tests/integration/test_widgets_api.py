@@ -105,3 +105,28 @@ def test_widget_routes_emit_product_events(
         "widget_list_viewed",
         "widget_detail_viewed",
     ]
+
+
+@pytest.mark.integration
+def test_widget_detail_route_uses_single_query(client: TestClient) -> None:
+    create_response = client.post("/api/v1/widgets", json={"name": "Detail Widget"})
+    widget_id = create_response.json()["id"]
+
+    settings = get_settings()
+    engine = get_engine(settings.database_url)
+    query_count = 0
+
+    def before_cursor_execute(*args) -> None:
+        nonlocal query_count
+        query_count += 1
+
+    listener: Callable[..., None] = before_cursor_execute
+    event.listen(engine, "before_cursor_execute", listener)
+    try:
+        response = client.get(f"/api/v1/widgets/{widget_id}")
+    finally:
+        event.remove(engine, "before_cursor_execute", listener)
+
+    assert response.status_code == 200
+    assert response.json()["id"] == widget_id
+    assert query_count == 1

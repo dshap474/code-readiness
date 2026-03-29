@@ -31,6 +31,12 @@ If `just` is unavailable, the underlying commands are documented in the root `ju
 - `POST /api/v1/widgets`
 - `GET /api/v1/widgets/{widget_id}`
 
+## Feature Flags
+
+- `FEATURE_FLAGS=widget_write_enabled=true` keeps widget creation enabled by default.
+- Set `FEATURE_FLAGS=widget_write_enabled=false` to pause `POST /api/v1/widgets` while leaving
+  read-only widget endpoints available.
+
 ## Proof Commands
 
 - `just fmt`
@@ -43,11 +49,23 @@ If `just` is unavailable, the underlying commands are documented in the root `ju
 - `just profile`
 - `just post-deploy-check`
 
+Formatting is enforced with `ruff format`; run `just fmt` to apply it and `just lint` or
+`just ci` to verify formatting remains stable.
+
 ## GitHub Operator Flows
 
 - inspect pull requests with `gh pr view`
 - inspect recent workflow runs with `gh run list`
 - inspect triage issues created by automation with `gh issue list --label needs-triage`
+- download PR review artifacts with `gh run download --name codex-pr-review`
+- download CI timing artifacts with `gh run download --name fast-feedback`
+- download CI performance summaries with `gh run download --name ci-performance-summary`
+- inspect recent deploy runs with `gh run list --workflow deploy.yml`
+- download deploy evidence with `gh run download --name deploy-evidence`
+- inspect generated release notes with `gh run list --workflow release-notes.yml`
+- trigger rollback automation with deploy workflow inputs `mode: rollback` and `rollback_release`
+- inspect published releases with `gh release list`
+- inspect security review runs with `gh run list --workflow security-review.yml`
 
 ## Control Plane
 
@@ -62,6 +80,7 @@ The primary mirrored namespace for this repo is `/.codex/`.
 
 - observability docs: `docs/observability/` and `monitoring/`
 - security contracts: `.github/CODEOWNERS`, `.github/dependabot.yml`, `.gitleaks.toml`, and `docs/security/`
+- automated security review artifacts: `gh run download --name security-review-artifacts`
 - task discovery: `.github/labels.yml`, `.github/ISSUE_TEMPLATE/`, `.github/pull_request_template.md`, and `.github/task-discovery.md`
 - product contracts: `docs/product/` and `.github/workflows/error-to-insight.yml`
 

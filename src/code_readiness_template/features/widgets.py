@@ -9,10 +9,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from prometheus_client import Counter
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import DateTime, String, desc, func, select
-from sqlalchemy.orm import Mapped, Session, mapped_column
+from sqlalchemy.orm import Mapped, Session, mapped_column, raiseload
 
 from code_readiness_template.analytics import emit_product_event
 from code_readiness_template.db import Base, get_session
+from code_readiness_template.feature_flags import WIDGET_WRITE_FLAG, is_feature_enabled
 from code_readiness_template.observability import log_runtime_event
 
 router = APIRouter(prefix="/api/v1/widgets", tags=["widgets"])
@@ -62,7 +63,7 @@ def build_widget_slug(name: str) -> str:
 
 @router.get("", response_model=list[WidgetRead])
 def list_widgets(session: SessionDep) -> Sequence[Widget]:
-    statement = select(Widget).order_by(desc(Widget.created_at))
+    statement = select(Widget).options(raiseload("*")).order_by(desc(Widget.created_at))
     widgets = session.scalars(statement).all()
     WIDGET_ACTIONS_TOTAL.labels("list").inc()
     log_runtime_event("widget.listed", widget_count=len(widgets))
@@ -72,8 +73,15 @@ def list_widgets(session: SessionDep) -> Sequence[Widget]:
 
 @router.post("", response_model=WidgetRead, status_code=status.HTTP_201_CREATED)
 def create_widget(payload: WidgetCreate, session: SessionDep) -> Widget:
+    if not is_feature_enabled(WIDGET_WRITE_FLAG.key):
+        log_runtime_event("widget.create_disabled", feature_flag=WIDGET_WRITE_FLAG.key)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Widget creation is temporarily disabled.",
+        )
+
     slug = build_widget_slug(payload.name)
-    existing = session.scalar(select(Widget).where(Widget.slug == slug))
+    existing = session.scalar(select(Widget).options(raiseload("*")).where(Widget.slug == slug))
     if existing is not None:
         log_runtime_event("widget.create_conflict", slug=slug)
         raise HTTPException(

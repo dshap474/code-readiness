@@ -18,6 +18,24 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ github.token }}
+      - name: Write secret scan summary
+        if: always()
+        run: |
+          mkdir -p dist/security
+          cat <<'EOF' > dist/security/gitleaks-summary.md
+          # Secret Scan Summary
+
+          - Scanner: gitleaks
+          - Surface: repository history and working tree
+          - Expectation: no committed credentials or tokens
+          - Follow-up: inspect the gitleaks step logs if this job fails
+          EOF
+      - name: Upload secret scan summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-summary
+          path: dist/security/gitleaks-summary.md
 
   dast:
     runs-on: ubuntu-latest
@@ -46,10 +64,89 @@ jobs:
             sleep 1
           done
           exit 1
+      - name: Capture DAST target metadata
+        run: |
+          mkdir -p dist/security
+          cat <<'EOF' > dist/security/dast-target.json
+          {
+            "target": "http://127.0.0.1:8000",
+            "liveness_endpoint": "/healthz",
+            "readiness_endpoint": "/readyz",
+            "scanner": "OWASP ZAP baseline"
+          }
+          EOF
       - name: Run ZAP baseline
         run: |
+          mkdir -p dist/security
           docker run --rm --network host ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
-            -t http://127.0.0.1:8000 -I
+            -t http://127.0.0.1:8000 -I \
+            -J dist/security/zap-report.json \
+            -w dist/security/zap-report.md
+      - name: Publish DAST summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          target = json.loads(Path("dist/security/dast-target.json").read_text())
+          report_path = Path("dist/security/zap-report.json")
+          summary_lines = [
+              "# DAST Summary",
+              "",
+              f"- Scanner: {target['scanner']}",
+              f"- Target: `{target['target']}`",
+              f"- Liveness endpoint: `{target['liveness_endpoint']}`",
+              f"- Readiness endpoint: `{target['readiness_endpoint']}`",
+              "- Readiness gate: `/readyz` returned success before the scan started",
+          ]
+          if report_path.exists():
+              report = json.loads(report_path.read_text())
+              site = (report.get("site") or [{}])[0]
+              alerts = site.get("alerts") or []
+              summary_lines.append(f"- Alert count: `{len(alerts)}`")
+          else:
+              summary_lines.append("- Alert count: `unavailable`")
+          summary_lines.extend(
+              [
+                  "- Triage: review `zap-report.md` and `zap-report.json` before merge",
+                  "",
+              ]
+          )
+          Path("dist/security/dast-summary.md").write_text("\n".join(summary_lines))
+          PY
+      - name: Publish security review summary
+        if: always()
+        run: |
+          cat <<'EOF' > dist/security/security-review-summary.md
+          # Automated Security Review
+
+          ## Checks
+          - Secret scanning with gitleaks
+          - Baseline DAST with OWASP ZAP
+
+          ## Artifacts
+          - `gitleaks-summary.md`
+          - `dast-target.json`
+          - `dast-summary.md`
+          - `zap-report.md`
+          - `zap-report.json`
+
+          ## Triage
+          - Review any failing workflow step before merge
+          - Open or update a tracking issue if ZAP reports medium-or-higher findings
+          EOF
+      - name: Upload DAST artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-review-artifacts
+          path: |
+            dist/security/security-review-summary.md
+            dist/security/dast-target.json
+            dist/security/dast-summary.md
+            dist/security/zap-report.md
+            dist/security/zap-report.json
       - name: Cleanup
         if: always()
         run: |

@@ -21,3 +21,8 @@ repos:
         entry: uv run python scripts/check-large-files.py
         language: system
         pass_filenames: false
+      - id: gitleaks-protect
+        name: gitleaks-protect
+        entry: uv run python scripts/check-secrets.py
+        language: system
+        pass_filenames: false

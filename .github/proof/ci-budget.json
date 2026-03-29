@@ -1,6 +1,7 @@
 {
   "workflow": "ci",
   "job": "proof",
-  "max_seconds": 900,
-  "artifact": "build-metrics.json"
+  "max_seconds": 600,
+  "artifact": "build-metrics.json",
+  "fast_feedback_artifact": "fast-feedback.json"
 }

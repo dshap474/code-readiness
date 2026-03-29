@@ -7,6 +7,41 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = ROOT / "src" / "code_readiness_template"
 FORBIDDEN_PREFIXES = ("tests", "scripts", "docs")
 FORBIDDEN_FEATURE_IMPORTS = ("code_readiness_template.app",)
+LAYER_RULES = {
+    "code_readiness_template.config": {
+        "forbidden_prefixes": (
+            "code_readiness_template.app",
+            "code_readiness_template.analytics",
+            "code_readiness_template.db",
+            "code_readiness_template.features",
+            "code_readiness_template.observability",
+        )
+    },
+    "code_readiness_template.db": {
+        "forbidden_prefixes": (
+            "code_readiness_template.app",
+            "code_readiness_template.analytics",
+            "code_readiness_template.features",
+            "code_readiness_template.observability",
+        )
+    },
+    "code_readiness_template.analytics": {
+        "forbidden_prefixes": (
+            "code_readiness_template.app",
+            "code_readiness_template.db",
+            "code_readiness_template.features",
+        )
+    },
+    "code_readiness_template.observability": {
+        "forbidden_prefixes": (
+            "code_readiness_template.app",
+            "code_readiness_template.analytics",
+            "code_readiness_template.db",
+            "code_readiness_template.features",
+        )
+    },
+    "code_readiness_template.features": {"forbidden_prefixes": ("code_readiness_template.app",)},
+}
 
 
 def iter_python_files() -> list[Path]:
@@ -30,6 +65,13 @@ def module_name_for(path: Path) -> str:
     return ".".join(relative.parts)
 
 
+def layer_rule_for(module_name: str) -> tuple[str, tuple[str, ...]] | None:
+    for prefix, rule in LAYER_RULES.items():
+        if module_name == prefix or module_name.startswith(f"{prefix}."):
+            return prefix, rule["forbidden_prefixes"]
+    return None
+
+
 def violations_for_node(node: ast.AST, module_name: str, path: Path) -> list[str]:
     violations: list[str] = []
     relative_path = path.relative_to(ROOT)
@@ -41,12 +83,24 @@ def violations_for_node(node: ast.AST, module_name: str, path: Path) -> list[str
                 violations.append(
                     f"{relative_path} imports forbidden external surface `{imported}`."
                 )
+            layer_rule = layer_rule_for(module_name)
+            if layer_rule and imported.startswith(layer_rule[1]):
+                violations.append(
+                    f"{relative_path} violates module boundary: `{module_name}` must not import "
+                    f"`{imported}`."
+                )
         return violations
 
     if isinstance(node, ast.ImportFrom):
         imported = resolve_import(node.module, node.level, module_name)
         if imported and imported.startswith(FORBIDDEN_PREFIXES):
             violations.append(f"{relative_path} imports forbidden external surface `{imported}`.")
+        layer_rule = layer_rule_for(module_name)
+        if imported and layer_rule and imported.startswith(layer_rule[1]):
+            violations.append(
+                f"{relative_path} violates module boundary: `{module_name}` must not import "
+                f"`{imported}`."
+            )
         if (
             module_name.startswith("code_readiness_template.features")
             and imported in FORBIDDEN_FEATURE_IMPORTS

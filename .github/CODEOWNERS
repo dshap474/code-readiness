@@ -1,7 +1,17 @@
 * @daniel
 
 /.github/ @daniel
+/.github/CODEOWNERS @daniel
+/.github/BRANCH_PROTECTION.md @daniel
+/.github/ISSUE_TEMPLATE/ @daniel
+/.github/labels.yml @daniel
+/.github/pull_request_template.md @daniel
+/.github/proof/ @daniel
+/.github/task-discovery.md @daniel
+/.github/workflows/ @daniel
 /.codex/ @daniel
+/docs/architecture/ @daniel
+/docs/api/ @daniel
 /docs/security/ @daniel
 /docs/observability/ @daniel
 /docs/product/ @daniel

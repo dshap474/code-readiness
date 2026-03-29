@@ -30,11 +30,28 @@ jobs:
           output-file: codex-output.md
           safety-strategy: drop-sudo
           sandbox: workspace-write
+      - name: Publish review artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-pr-review
+          path: codex-output.md
   post-feedback:
     runs-on: ubuntu-latest
     needs: codex
     if: needs.codex.outputs.final_message != ''
     steps:
+      - name: Publish PR review summary
+        run: |
+          mkdir -p dist/review
+          cat <<'EOF' > dist/review/pr-review-summary.md
+          # Automated PR Review
+
+          - Reviewer: Codex
+          - Trigger: pull_request opened, synchronized, or reopened
+          - Coverage: correctness, regressions, missing tests, and security risks
+          - Delivery: pull request comment plus uploaded artifact
+          EOF
       - name: Post Codex feedback
         uses: actions/github-script@v7
         env:
@@ -48,3 +65,8 @@ jobs:
               issue_number: context.payload.pull_request.number,
               body: process.env.CODEX_FINAL_MESSAGE,
             });
+      - name: Upload PR review summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-review-summary
+          path: dist/review/pr-review-summary.md
