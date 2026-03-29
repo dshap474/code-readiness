@@ -1,0 +1,34 @@
+labels:
+  - name: type/bug
+    color: d73a4a
+    description: Defect or regression in shipped behavior.
+  - name: type/feature
+    color: 0e8a16
+    description: New user-facing or operator-facing capability.
+  - name: type/chore
+    color: cfd3d7
+    description: Maintenance work with little or no behavior change.
+  - name: priority/p0
+    color: b60205
+    description: Immediate attention required.
+  - name: priority/p1
+    color: d93f0b
+    description: High-priority work for the next active cycle.
+  - name: priority/p2
+    color: fbca04
+    description: Normal scheduled work.
+  - name: priority/p3
+    color: 0e8a16
+    description: Lower-priority work or deferred work.
+  - name: area/backend
+    color: 1d76db
+    description: Backend or service ownership area.
+  - name: area/devx
+    color: 5319e7
+    description: Tooling, docs, CI, or developer experience area.
+  - name: needs-triage
+    color: f9d0c4
+    description: New work that still needs ownership and priority review.
+  - name: blocked
+    color: e4e669
+    description: Work cannot progress until an external dependency clears.

@@ -1,0 +1,30 @@
+name: Bug report
+description: Report a defect in shipped behavior.
+labels: ["type/bug", "needs-triage"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Include exact steps, inputs, and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: proof
+    attributes:
+      label: Validation or evidence
+      description: Include logs, metrics, failing tests, or screenshots as relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risk or impact
+    validations:
+      required: true

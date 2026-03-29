@@ -1,0 +1,6 @@
+experiments:
+  - name: widget_list_sort_order
+    status: dormant
+    audience: API consumers using list endpoints
+    success_metric: Higher repeated list usage with no increase in error rate
+    guardrail: Do not ship if request latency regresses beyond the current baseline

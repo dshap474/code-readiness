@@ -1,0 +1,24 @@
+events:
+  - name: widget_list_viewed
+    owner: engineering
+    purpose: Measure list traffic and baseline widget inventory usage.
+    required_properties:
+      - widget_count
+      - app_env
+      - release
+  - name: widget_created
+    owner: engineering
+    purpose: Measure successful widget creation flow.
+    required_properties:
+      - widget_id
+      - slug
+      - app_env
+      - release
+  - name: widget_detail_viewed
+    owner: engineering
+    purpose: Measure detail lookups for created widgets.
+    required_properties:
+      - widget_id
+      - slug
+      - app_env
+      - release

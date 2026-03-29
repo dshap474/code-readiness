@@ -1,0 +1,30 @@
+name: Feature request
+description: Propose a user-facing or operator-facing improvement.
+labels: ["type/feature", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Describe the change surface and any constraints.
+    validations:
+      required: true
+  - type: textarea
+    id: proof
+    attributes:
+      label: Success signals
+      description: Explain how the repo will know this change worked.
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risks or dependencies
+    validations:
+      required: true

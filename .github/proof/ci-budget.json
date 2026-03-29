@@ -1,0 +1,6 @@
+{
+  "workflow": "ci",
+  "job": "proof",
+  "max_seconds": 900,
+  "artifact": "build-metrics.json"
+}

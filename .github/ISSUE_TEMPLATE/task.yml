@@ -1,0 +1,29 @@
+name: Task
+description: Track scoped engineering or maintenance work.
+labels: ["type/chore", "needs-triage"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Implementation scope
+    validations:
+      required: true
+  - type: textarea
+    id: proof
+    attributes:
+      label: Proof path
+      description: List the commands or checks that should pass when this task is done.
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risk or follow-up
+    validations:
+      required: true

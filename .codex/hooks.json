@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash \"$(git rev-parse --show-toplevel)/.codex/hooks/session-start-bootstrap.sh\"",
+            "statusMessage": "Bootstrapping local environment"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash \"$(git rev-parse --show-toplevel)/.codex/hooks/pre-tool-use-security.sh\"",
+            "statusMessage": "Checking dangerous Bash command"
+          }
+        ]
+      }
+    ]
+  }
+}
